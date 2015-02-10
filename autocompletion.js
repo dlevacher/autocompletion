@@ -2,8 +2,8 @@
   "use strict";
   var plugin_name = "autocompletion", defaults = {
     caching: true,
-    container: '<div class="autocompletion"></div>',
-    item: '<p class="autocompletion-item"></p>',
+    container: '<ul class="autocompletion f-dropdown"></ul>',
+    item: '<li class="autocompletion-item"></li>',
     source: []
   };
   function Plugin(element, options) {
@@ -25,7 +25,7 @@
     },
     bind: function() {
       var that = this, item_selector = "[" + this._attr_value + "]";
-      this.$element.on("blur", $.proxy(this.blur, this)).on("keyup", $.proxy(this.keyup, this));
+      this.$element.on("blur", $.proxy(this.blur, this)).on("keyup", $.proxy(this.keyup, this)).on("keydown", $.proxy(this.keydown, this));
       this.$container.on("mouseenter", function() {
         that.mousein = true;
       }).on("mouseleave", function() {
@@ -42,7 +42,55 @@
         this.hide();
       }
     },
-    keyup: function() {
+    keydown: function(e) {
+      e = e || window.event;
+      var item_selector = "[" + this._attr_value + "]";
+      var keyCode = e.keyCode;
+      if (keyCode == 33) { return; } // page up (do nothing)
+      if (keyCode == 34) { return; } // page down (do nothing);
+      if (keyCode == 27) { //escape
+        this.blur();
+        return;
+      }
+      if (keyCode == 13 || keyCode == 35 || keyCode == 9) { // enter, end, tab  (autocomplete triggered)
+        this.select();
+        return; 
+      }
+      if (keyCode == 38 || keyCode == 40 ) {    // up, down
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+    },
+    keyup: function(e) {
+      e = e || window.event;
+      var item_selector = "[" + this._attr_value + "]";
+      var keyCode = e.keyCode;
+      if (keyCode == 13 || keyCode == 35 || keyCode == 9) { // enter, right,  end, tab  (autocomplete triggered)
+        e.preventDefault();
+        e.stopPropagation();
+        return; 
+      }
+      if (keyCode == 40) {     // down
+        e.preventDefault();
+        e.stopPropagation();
+        var current = this.$container.find("." + this._class_current);
+        if (current.length)
+          current.removeClass(this._class_current).next(item_selector).addClass(this._class_current);
+        else
+          this.$container.find(item_selector).first().addClass(this._class_current);
+        return; 
+      }
+      if (keyCode == 38 ) {    // up
+        e.preventDefault();
+        e.stopPropagation();
+        var current = this.$container.find("." + this._class_current);
+        if (current.length)
+          current.removeClass(this._class_current).prev(item_selector).addClass(this._class_current);
+        else
+          this.$container.find(item_selector).last().addClass(this._class_current);
+        return; 
+      }
       this.q = this.$element.val();
       this.q_lower = this.q.toLowerCase();
       if (!this.q) {
@@ -61,6 +109,8 @@
     click: function(e) {
       e.stopPropagation();
       e.preventDefault();
+      this.$container.find("." + this._class_current).removeClass(this._class_current);
+      $(e.currentTarget).addClass(this._class_current);
       this.select();
     },
     suggest: function(items) {
@@ -79,8 +129,9 @@
         return this.hide();
       }
       var that = this,
+      el = this.$container.find("." + this._class_current).attr(this._attr_value),
       items_dom = $.map(items, function(item) {
-        return $(that.options.item).attr(that._attr_value, item).html(that.highlight(item))[0];
+        return $(that.options.item).attr(that._attr_value, item).html(that.highlight(item)).addClass(item == el ? that._class_current : '')[0];
       }), position = this.$element.position();
       // render container body
       this.customize(this.$container.css({
@@ -104,7 +155,7 @@
       value = $.proxy(this.fill, $el[0], $el.attr(this._attr_value), $.proxy(this.hide, this))();
       if (value) {
         this.hide();
-        this.$element.val().change();
+        this.$element.val(value).change();
       }
     },
     fill: function(value) {
@@ -120,6 +171,7 @@
       if (this.visible) {
         this.visible = false;
         this.$container.hide();
+        this.$container.find("." + this._class_current).removeClass(this._class_current);
       }
     }
   };
